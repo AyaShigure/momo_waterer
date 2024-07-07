@@ -9,11 +9,8 @@
 
 What does this script do:
 
-    1. On activation: the system will halt until the next 9am 
-    2. At the first 9am, the system will activate the pump for 200s 
-        if the waterLevel is also at status:0 (LOW)
-    3. After watering the plant, the system will wait for 3 days,
-        using WaitUnitlNext9AM() and WaitFor20Hour().
-    4. Finally, the WaitFor3Days() will end on the 4th day morning before 9AM
-    5. Loop back to beginning and wail until the next 9AM and water the flower..
-
+1. On activation: the system will halt until the next 9am 
+2. At the first 9am, the system will activate the pump for 200s, if the waterLevel is also at status:0 (LOW)
+3. After watering the plant, the system will wait for 3 days, using WaitUnitlNext9AM() and WaitFor20Hour().
+4. Finally, the WaitFor3Days() will end on the 4th day morning before 9AM
+5. Loop back to beginning and wail until the next 9AM and water the flower..
