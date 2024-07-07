@@ -5,16 +5,36 @@
 // DS1302 RST/CE --> 2
 // DS1302 VCC --> 3.3v - 5v
 // DS1302 GND --> GND
+
+// PUMP ACTIVATION --> 10
+// RTC ERROR --> 11
+
+
 #include <ThreeWire.h>  
 #include <RtcDS1302.h>
 
 
 /*
-Note by Aya at 2024-7-6: Go create a state machine diagram first!!
+Note from Aya on 2024-7-6: Go create a state machine diagram first!!
 
 Controll logic:
-1.  Water the plant at 9 am every 3 days
-2.  Design the state machine
+1.  Water the plant at 9 am every 3 days (DONE)
+2.  Design the state machine (DONE)
+*/
+
+/*
+Note from Aya on 2024-7-7: The script is completed, but not throughtly tested.
+
+What does this script do:
+
+    1. On activation: the system will halt until the next 9am 
+    2. At the first 9am, the system will activate the pump for 200s 
+        if the waterLevel is also at status:0 (LOW)
+    3. After watering the plant, the system will wait for 3 days,
+        using WaitUnitlNext9AM() and WaitFor20Hour().
+    4. Finally, the WaitFor3Days() will end on the 4th day morning before 9AM
+    5. Loop back to beginning and wail until the next 9AM and water the flower..
+
 */
 
 
@@ -22,6 +42,10 @@ Controll logic:
 ThreeWire myWire(4,5,2); // IO, SCLK, CE
 RtcDS1302<ThreeWire> Rtc(myWire);
 #define countof(a) (sizeof(a) / sizeof(a[0]))
+const int PUMP_CTRL_PIN = 10;
+const int RTC_ERROR_LED_PIN = 11;
+bool resetTimeOverride = true;  // This flag force reset the time to 08:59:00
+
 
 void printDateTime(const RtcDateTime& dt)
 {
@@ -36,37 +60,92 @@ void printDateTime(const RtcDateTime& dt)
             dt.Hour(),
             dt.Minute(),
             dt.Second() );
+    Serial.print("[");
     Serial.print(datestring);
+    Serial.print("] ");
 }
 
-
-// Global variables
-const int waterThePlantEveryHowManyDays = 3;
-int todayIsTheDayNumberWhat;
-
-boolean startTimeIsSet = false;
-int StartTimeInitializations(const RtcDateTime& now, boolean startTimeIsSet)
+void RtcValidCheck()
 {
-    if(startTimeIsSet == true)
+    /*
+        This block checks if RTC is valid, if not, shut pump pin down and go into infinite loop.
+        Also active the RTC_ERROR_LED.
+    */
+    RtcDateTime now = Rtc.GetDateTime();
+    if (!now.IsValid())
     {
-        Serial.println("Start date is (re)set");
-        return 0;
+        // Common Causes:
+        //    1) the battery on the device is low or even missing and the power line was disconnected
+        digitalWrite(PUMP_CTRL_PIN, LOW);
+        digitalWrite(RTC_ERROR_LED_PIN, HIGH);
+        while(1){
+            Serial.println("======================================");
+            Serial.println("RTC lost confidence in the DateTime!");
+            Serial.println("Check the battery on the device.");
+            Serial.println("System will not automatically reset!");
+            Serial.println("======================================");
+            delay(5000);
+        }
     }
-
-
-
-}
-
-void UpdateClockUntilNextWatering(const RtcDateTime& now)
-{
+    else
+    {   
+        Serial.println("RTC status: OK");
+    }
     
 }
 
+// Trick: wait for 20h, then wait till 9am, this ensures the delay will not drift over days and eventually skip 9am~10am
+void WaitFor20Hour() 
+{
+    /*
+        This block will halt the program for 22h
+    */
+    RtcDateTime now = Rtc.GetDateTime(); // Get current time
+    int hourBeforeDelay = now.Hour();  // Get hour
+    int hourNumberSinceStart = 1;
+    int delayOneSecond = 1000;
 
-void WaterTheFlowerToday(const RtcDateTime& now){
+    while(hourNumberSinceStart != 20){  
+        RtcValidCheck();
+        now = Rtc.GetDateTime();
+        if((hourBeforeDelay - now.Hour()) != 0) // Check if hour has changed
+        {
+            // Hour number has changed
+            hourNumberSinceStart += 1;
+        }
 
+        now = Rtc.GetDateTime(); // Update time
+        hourBeforeDelay = now.Hour();  // Updat hour
+        delay(10 * delayOneSecond); // Delay 10s
+        
+        printDateTime(now);
+        Serial.println("Waiting until 20 hours to past");
+        Serial.print("Current hourNumberSinceStart = ");
+        Serial.println(hourNumberSinceStart);
+    }
 }
 
+void WaitUntilNext9AM()
+{
+    /*
+        This block will halt the program until next 9 am.
+        If started at 9am ~ 10am, this block will be skiped.
+    */
+    RtcDateTime now = Rtc.GetDateTime(); // Get current time
+    int Hour = now.Hour();
+    int delayOneSecond = 1000;
+
+    while(Hour != 9){ 
+        RtcValidCheck();
+        now = Rtc.GetDateTime(); // Get current time
+        Hour = now.Hour();  // Get hour
+
+        delay(10 * delayOneSecond); // Delay 10s
+        printDateTime(now);
+        Serial.print("Waiting until next 9 am... ");
+    }
+
+}
 
 int CheckWaterLevel(){
     int waterLevelStatus;
@@ -88,18 +167,75 @@ int CheckWaterLevel(){
     return waterLevelStatus;
 }
 
+void WaterThePlant()
+{
+    /*
+        This block will active the pump if below conditions are met:
+        1.  Activat time is smaller than maxActivationTime.
+        2.  CheckWaterLevel() returns status "0" ("LOW")
+    */
+
+    int maxActivationTime = 200; // 200s
+    int delayOneSecond = 1000;
+    int timer = 0;
+
+    int waterLevelStatus = CheckWaterLevel();
+    // Water the plant until water level sensor returns OK level.
+    Serial.print("Water level: ");
+    Serial.print(waterLevelStatus);
+    Serial.println();
+    
+    while(timer < maxActivationTime && waterLevelStatus == 0)
+    {
+        RtcValidCheck();
+        digitalWrite(PUMP_CTRL_PIN, HIGH); // Active the pump
 
 
+        waterLevelStatus = CheckWaterLevel(); // Update water level
+        Serial.print("Water level: ");
+        Serial.print(waterLevelStatus);
+        Serial.println();
 
+        delay(delayOneSecond);
+        timer += 1; // Update timer
+        Serial.print("Watering the plant... Current time: ");
+        Serial.print(timer);
+        Serial.println();
+    }
+    
+    digitalWrite(PUMP_CTRL_PIN, LOW); // Stop the pump
+    Serial.println("Pump is deactivated");
+    Serial.println("Watering is completed");
+    Serial.println();
+}
 
+void WaitFor3Days()
+{
+    /*
+        This block will halt the program until the first 9am, then halt the program for additional 3 days,
+        utill 9am ~ 10am on the third day 
+    */
 
+    int dayNumber = 0;
+    int waitDays = 3;
+    for(int i = 0; i < waitDays; i++){
+        WaitUntilNext9AM();
+        WaitFor20Hour();
+        dayNumber += 1;
+    }
 
-
-
+}
 
 
 void setup () 
 {
+    // system initializaitons
+    pinMode(PUMP_CTRL_PIN, OUTPUT);
+    pinMode(RTC_ERROR_LED_PIN, OUTPUT);
+
+    digitalWrite(PUMP_CTRL_PIN, LOW);
+    digitalWrite(RTC_ERROR_LED_PIN, LOW);
+
     Serial.begin(9600);
 
     Serial.print("compiled: ");
@@ -138,7 +274,10 @@ void setup ()
     if (now < compiled) 
     {
         Serial.println("RTC is older than compile time!  (Updating DateTime)");
+        Serial.print("Updating the time to : ");
+        printDateTime(compiled);
         Rtc.SetDateTime(compiled);
+
     }
     else if (now > compiled) 
     {
@@ -148,34 +287,38 @@ void setup ()
     {
         Serial.println("RTC is the same as compile time! (not expected but all is fine)");
     }
+
+
+
+    if(resetTimeOverride == true)
+    {
+        char overrideDate[] = "Jul 7 2024";
+        char overrideHMS[] = "08:59:00";
+        RtcDateTime overrideTime = RtcDateTime(overrideDate, overrideHMS);
+
+        // Serial.println(overrideTime);
+        Serial.println();
+        Serial.println("RTC time override!");
+        Serial.print("Updating the time to override time: ");
+        printDateTime(overrideTime);
+        Rtc.SetDateTime(overrideTime);
+    }
+
 }
-
-
-
 
 
 void loop () 
 {
-    RtcDateTime now = Rtc.GetDateTime();
+    Serial.println("System is activating..");
 
-//    printDateTime(now);
-    // Serial.print(now.Hour());
-    // Serial.print(now.Minute());
-    // Serial.print(now.Second());
-    Serial.print("Week number: ");
-    // Serial.print(now.DayOfWeek());
-    Serial.print(now.DayOfWeek());
-    Serial.print(" ");
-
-    Serial.println();
-
-    if (!now.IsValid())
+    while(1)
     {
-        // Common Causes:
-        //    1) the battery on the device is low or even missing and the power line was disconnected
-        Serial.println("RTC lost confidence in the DateTime!");
+        WaitUntilNext9AM();
+        WaterThePlant();
+        WaitFor3Days(); // Halt for 3x24=72 hours
+
+        // WaterThePlant();
+        // delay(10000);
     }
 
-    delay(1000); // five seconds
 }
-
