@@ -9,8 +9,10 @@
 // PUMP ACTIVATION --> 10
 // RTC ERROR --> 11
 
+
 #include <ThreeWire.h>  
 #include <RtcDS1302.h>
+
 
 /*
 Note from Aya on 2024-7-6: Go create a state machine diagram first!!
@@ -42,7 +44,6 @@ RtcDS1302<ThreeWire> Rtc(myWire);
 #define countof(a) (sizeof(a) / sizeof(a[0]))
 const int PUMP_CTRL_PIN = 10;
 const int RTC_ERROR_LED_PIN = 11;
-const int MAX_WATER_LEVEL = 430;
 bool resetTimeOverride = false;  // This flag force reset the time to 08:59:00
 
 void PrintWaterLevel()
@@ -156,7 +157,7 @@ void WaitUntilNext9AM()
 
 int CheckWaterLevel(){
     int waterLevelStatus;
-    float targetWaterLevel = MAX_WATER_LEVEL; // Target water level is 70% full
+    float targetWaterLevel = 0.6; // Target water level is 70% full
     float currentWaterLevel = (float)analogRead(A0) / 255.0 ; // Water level normalized to 1
 
     if(currentWaterLevel < targetWaterLevel)
@@ -320,14 +321,13 @@ void loop ()
 
     while(1)
     {
-        WaitUntilNext9AM();
-        WaterThePlant();
-        WaitFor3Days(); // Halt for 3x24=72 hours
-
+//        WaitUntilNext9AM();
+//        WaterThePlant();
+//        WaitFor3Days(); // Halt for 3x24=72 hours
+        delay(50);
+        PrintWaterLevel();
         // WaterThePlant();
         // delay(10000);
     }
 
 }
-
-
