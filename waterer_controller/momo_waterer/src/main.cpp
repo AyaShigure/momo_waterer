@@ -35,6 +35,10 @@ What does this script do:
 
 */
 
+/*
+Note from Aya on 2024-7-22: Measuring noise problem is... problematic, need some sort of filter
+
+*/
 
 // RTCDS1302 module
 ThreeWire myWire(4,5,2); // IO, SCLK, CE
@@ -42,7 +46,7 @@ RtcDS1302<ThreeWire> Rtc(myWire);
 #define countof(a) (sizeof(a) / sizeof(a[0]))
 const int PUMP_CTRL_PIN = 10;
 const int RTC_ERROR_LED_PIN = 11;
-const int MAX_WATER_LEVEL = 430;
+const int MAX_WATER_LEVEL = 500;
 bool resetTimeOverride = false;  // This flag force reset the time to 08:59:00
 
 void PrintWaterLevel()
@@ -157,7 +161,7 @@ void WaitUntilNext9AM()
 int CheckWaterLevel(){
     int waterLevelStatus;
     float targetWaterLevel = MAX_WATER_LEVEL; // Target water level is 70% full
-    float currentWaterLevel = (float)analogRead(A0) / 255.0 ; // Water level normalized to 1
+    float currentWaterLevel = analogRead(A0); // Water level rawinput
 
     if(currentWaterLevel < targetWaterLevel)
     {
@@ -170,7 +174,10 @@ int CheckWaterLevel(){
     else{
         waterLevelStatus = 2; // Water level: OVERFILLED
     }    
-    
+    Serial.print("Current water level(debug): ");
+    Serial.println(currentWaterLevel);
+    Serial.print("Current water status(debug): ");
+    Serial.println(waterLevelStatus);
     return waterLevelStatus;
 }
 
@@ -300,7 +307,7 @@ void setup ()
     if(resetTimeOverride == true)
     {
         char overrideDate[] = "Jul 7 2024";
-        char overrideHMS[] = "08:59:00";
+        char overrideHMS[] = "08:59:50";
         RtcDateTime overrideTime = RtcDateTime(overrideDate, overrideHMS);
 
         // Serial.println(overrideTime);
