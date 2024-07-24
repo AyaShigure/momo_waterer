@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/ayashigure/Desktop/Projects_n_Labs/momo_waterer/waterer_controller/momo_waterer/src",
+      "program": "/Users/ayashigure/Desktop/Projects_n_Labs/momo_waterer/waterer_controller/momo_waterer/src/build/Debug/outDebug"
+    }
+  ]
+}
