@@ -1,4 +1,5 @@
 #define WATER_TIME 10
+#define OVERRIDE_FLAG false
 #include <Arduino.h>
 // CONNECTIONS:
 // DS1302 CLK/SCLK --> 5
@@ -48,7 +49,7 @@ RtcDS1302<ThreeWire> Rtc(myWire);
 const int PUMP_CTRL_PIN = 10;
 const int RTC_ERROR_LED_PIN = 11;
 const int MAX_WATER_LEVEL = 500;
-bool resetTimeOverride = true;  // This flag force reset the time to 08:59:00
+bool resetTimeOverride = OVERRIDE_FLAG;  // This flag force reset the time to 08:59:00
 
 void PrintWaterLevel()
 {
@@ -156,7 +157,6 @@ void WaitUntilNext9AM()
         PrintWaterLevel();
         Serial.print("Waiting until next 9 am... ");
     }
-
 }
 
 int CheckWaterLevel(){
@@ -181,7 +181,6 @@ int CheckWaterLevel(){
     Serial.println(waterLevelStatus);
     // return waterLevelStatus;
     return 0; // water level override -> always ok.
-    
 }
 
 void WaterThePlant()
