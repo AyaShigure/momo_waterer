@@ -233,7 +233,7 @@ void WaitFor3Days()
     */
 
     int dayNumber = 0;
-    int waitDays = 3;
+    int waitDays = 2; // 2024-7-30, revised form 3 to 2
     for(int i = 0; i < waitDays; i++){
         WaitUntilNext9AM();
         WaitFor20Hour();
