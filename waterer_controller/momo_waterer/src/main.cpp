@@ -1,4 +1,5 @@
-#define WATER_TIME 10
+#define WATER_TIME 30
+#define WAIT_DAYS 2
 #define OVERRIDE_FLAG false
 #include <Arduino.h>
 // CONNECTIONS:
@@ -109,7 +110,7 @@ void RtcValidCheck()
 void WaitFor20Hour() 
 {
     /*
-        This block will halt the program for 22h
+        This block will halt the program for 20h
     */
     RtcDateTime now = Rtc.GetDateTime(); // Get current time
     int hourBeforeDelay = now.Hour();  // Get hour
@@ -137,17 +138,17 @@ void WaitFor20Hour()
     }
 }
 
-void WaitUntilNext9AM()
+void WaitUntilNext7AM()
 {
     /*
-        This block will halt the program until next 9 am.
+        This block will halt the program until next 7 am.
         If started at 9am ~ 10am, this block will be skiped.
     */
     RtcDateTime now = Rtc.GetDateTime(); // Get current time
     int Hour = now.Hour();
     int delayOneSecond = 1000;
 
-    while(Hour != 9){ 
+    while(Hour != 7){  // 2024-8-4: revisied to 7am, 
         RtcValidCheck();
         now = Rtc.GetDateTime(); // Get current time
         Hour = now.Hour();  // Get hour
@@ -191,7 +192,7 @@ void WaterThePlant()
         2.  CheckWaterLevel() returns status "0" ("LOW")
     */
 
-    int maxActivationTime = 10; // 20s
+    int maxActivationTime = WATER_TIME; 
     int delayOneSecond = 1000;
     int timer = 0;
 
@@ -228,18 +229,15 @@ void WaterThePlant()
 void WaitFor3Days()
 {
     /*
-        This block will halt the program until the first 9am, then halt the program for additional 3 days,
+        This block will halt the program until the first 9am, then halt the program for additional WAIT_DAYS days,
         utill 9am ~ 10am on the third day 
     */
 
-    int dayNumber = 0;
-    int waitDays = 2; // 2024-7-30, revised form 3 to 2
+    int waitDays = WAIT_DAYS; // 2024-7-30: revised form 3 to 2, 2024-8-4: revised to WAIT_DAYS
     for(int i = 0; i < waitDays; i++){
-        WaitUntilNext9AM();
+        WaitUntilNext7AM();
         WaitFor20Hour();
-        dayNumber += 1;
     }
-
 }
 
 
@@ -329,9 +327,9 @@ void loop ()
 
     while(1)
     {
-        WaitUntilNext9AM();
+        WaitUntilNext7AM();
         WaterThePlant();
-        WaitFor3Days(); // Halt for 3x24=72 hours
+        WaitFor3Days(); // Halt for WAIT_DAYSx24=72 hours
 
         // WaterThePlant();
         // delay(10000);
